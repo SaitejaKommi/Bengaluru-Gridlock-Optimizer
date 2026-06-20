@@ -108,11 +108,11 @@ def detect_seatbelt(
         }
 
     if len(results.boxes) == 0:
-        # Fine-tuned model found nothing — treat driver as no seatbelt
+        # Fine-tuned model found nothing — return unavailable (unknown)
         return {
             "vehicle_id": vehicle_id,
-            "status": "no_seatbelt",
-            "confidence": 0.5,
+            "status": "unavailable",
+            "confidence": 0.0,
             "bbox": [],
         }
 
@@ -140,9 +140,7 @@ def detect_seatbelt(
                 best_conf   = conf
                 best_bbox   = [x1 + cx1, y1 + cy1, x1 + cx2, y1 + cy2]
 
-    if best_status == "unavailable":
-        best_status = "no_seatbelt"
-        best_conf   = 0.5
+    # Do not fallback to no_seatbelt if unavailable to prevent programmatic hallucinations
 
     logger.info(f"Seatbelt detection for vehicle {vehicle_id}: {best_status} ({best_conf:.2f})")
     return {

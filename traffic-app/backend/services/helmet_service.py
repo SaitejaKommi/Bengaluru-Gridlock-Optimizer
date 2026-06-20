@@ -106,22 +106,13 @@ def detect_helmet(
         }
 
     if len(results.boxes) == 0:
-        # No helmet class detected at all on crop
-        if _using_custom:
-            # The fine-tuned model should find something — treat as no helmet
-            return {
-                "vehicle_id": vehicle_id,
-                "status": "without_helmet",
-                "confidence": 0.5,
-                "bbox": [],
-            }
-        else:
-            return {
-                "vehicle_id": vehicle_id,
-                "status": "unavailable",
-                "confidence": 0.0,
-                "bbox": [],
-            }
+        # No helmet class detected at all on crop — return unavailable (unknown)
+        return {
+            "vehicle_id": vehicle_id,
+            "status": "unavailable",
+            "confidence": 0.0,
+            "bbox": [],
+        }
 
     # Pick the highest-confidence box
     best_idx = int(results.boxes.conf.argmax())
