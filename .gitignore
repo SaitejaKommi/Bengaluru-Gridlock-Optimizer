@@ -1,0 +1,42 @@
+# Notebooks / Documents (already configured)
+checklist.md
+problemstatement.docs
+dataset.md
+rules.md
+mvp.md
+colab.md
+finalApp.md
+lightweightColab.md
+RealColabImplementation.md
+RealColabPart2.md
+
+# Virtual Environments
+venv/
+.venv/
+env/
+traffic-app/venv/
+
+# Caches & System Files
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+.vscode/
+.idea/
+
+# YOLO & Models
+runs/
+*.pt
+!traffic-app/backend/models/*.pt
+
+# Test cases
+test_images/
+traffic-app/test_images/
+
+/home/durga-prasad/Bengaluru-Gridlock-Optimizer/traffic-app/venv
+finalColab/Violation images
+finalColab
+
+# Ignore everything in traffic-app except backend
+traffic-app/*
+!traffic-app/backend/
