@@ -82,11 +82,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Serve the frontend HTML file
+# Serve the frontend HTML file and static assets
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
+app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
 
 @app.get("/", response_class=HTMLResponse)
+@app.get("/upload", response_class=HTMLResponse)
+@app.get("/results", response_class=HTMLResponse)
 async def serve_frontend():
     """Serve the frontend UI."""
     index_path = os.path.join(FRONTEND_DIR, "index.html")
