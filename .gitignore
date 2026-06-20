@@ -36,7 +36,3 @@ traffic-app/test_images/
 /home/durga-prasad/Bengaluru-Gridlock-Optimizer/traffic-app/venv
 finalColab/Violation images
 finalColab
-
-# Ignore everything in traffic-app except backend
-traffic-app/*
-!traffic-app/backend/

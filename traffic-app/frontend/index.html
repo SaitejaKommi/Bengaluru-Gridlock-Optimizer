@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Traffic Violation Detection System</title>
+  <meta name="description" content="AI-powered automated traffic violation detection — helmet, seatbelt, and number plate analysis." />
+  <style>
+    /* ─── Reset & Base ─────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:        #0f1117;
+      --surface:   #1a1d27;
+      --surface2:  #22263a;
+      --border:    #2e3350;
+      --accent:    #3b82f6;
+      --accent-h:  #60a5fa;
+      --red:       #ef4444;
+      --green:     #22c55e;
+      --yellow:    #f59e0b;
+      --text:      #e2e8f0;
+      --muted:     #94a3b8;
+      --radius:    12px;
+      --font:      system-ui, -apple-system, 'Segoe UI', sans-serif;
+    }
+    html { font-size: 16px; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 48px;
+    }
+
+    /* ─── Header ───────────────────────────────────────────────────────────── */
+    header {
+      text-align: center;
+      margin-bottom: 32px;
+      max-width: 700px;
+    }
+    header .logo { font-size: 2.4rem; margin-bottom: 8px; }
+    header h1 { font-size: 1.6rem; font-weight: 700; color: var(--accent-h); }
+    header p  { color: var(--muted); font-size: 0.92rem; margin-top: 6px; }
+
+    /* ─── Main layout ──────────────────────────────────────────────────────── */
+    .container { width: 100%; max-width: 1100px; }
+
+    /* ─── Upload zone ──────────────────────────────────────────────────────── */
+    #drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      padding: 48px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    #drop-zone.drag-over {
+      border-color: var(--accent);
+      background: #1e2a45;
+    }
+    #drop-zone input { display: none; }
+    #drop-zone .icon { font-size: 3rem; margin-bottom: 12px; }
+    #drop-zone p { color: var(--muted); font-size: 0.95rem; }
+    #drop-zone strong { color: var(--accent-h); }
+
+    /* Preview inside drop zone */
+    #preview-wrap { position: relative; display: inline-block; }
+    #preview {
+      max-width: 100%;
+      max-height: 280px;
+      border-radius: 8px;
+      display: none;
+      margin-bottom: 12px;
+    }
+    #change-btn {
+      display: none;
+      margin: 0 auto;
+      font-size: 0.82rem;
+      color: var(--muted);
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 12px;
+      cursor: pointer;
+    }
+    #change-btn:hover { border-color: var(--accent); color: var(--accent-h); }
+
+    /* ─── Analyze button ───────────────────────────────────────────────────── */
+    #analyze-btn {
+      display: block;
+      width: 100%;
+      max-width: 320px;
+      margin: 20px auto 0;
+      padding: 14px 28px;
+      font-size: 1rem;
+      font-weight: 600;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    #analyze-btn:hover:not(:disabled) { background: #2563eb; transform: translateY(-1px); }
+    #analyze-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+    /* ─── Spinner ──────────────────────────────────────────────────────────── */
+    #spinner {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 32px;
+    }
+    .spin-ring {
+      width: 48px; height: 48px;
+      border: 4px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #spinner p { color: var(--muted); font-size: 0.9rem; }
+
+    /* ─── Error banner ──────────────────────────────────────────────────────── */
+    #error-box {
+      display: none;
+      background: #2a1515;
+      border: 1px solid var(--red);
+      color: #fca5a5;
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      margin-top: 16px;
+      font-size: 0.9rem;
+    }
+
+    /* ─── Results ───────────────────────────────────────────────────────────── */
+    #results { display: none; margin-top: 32px; }
+
+    /* Summary bar */
+    .summary-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      text-align: center;
+    }
+    .stat-card .val {
+      font-size: 1.8rem;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .stat-card .label { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .val.ok   { color: var(--green); }
+    .val.warn { color: var(--yellow); }
+    .val.bad  { color: var(--red); }
+    .val.blue { color: var(--accent-h); }
+
+    /* Image comparison */
+    .img-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 640px) { .img-row { grid-template-columns: 1fr; } }
+    .img-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .img-panel .caption {
+      padding: 8px 14px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+    }
+    .img-panel img {
+      width: 100%;
+      display: block;
+      object-fit: contain;
+      background: #0a0c12;
+      max-height: 420px;
+    }
+
+    /* Section heading */
+    .section-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--accent-h);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Violations */
+    #violations-section { margin-bottom: 24px; }
+    .violation-list { display: flex; flex-direction: column; gap: 8px; }
+    .violation-card {
+      background: #200f0f;
+      border: 1px solid #4b1919;
+      border-radius: 8px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .violation-card .vicon { font-size: 1.3rem; flex-shrink: 0; margin-top: 1px; }
+    .violation-card .vtype { font-weight: 600; color: #fca5a5; font-size: 0.95rem; }
+    .violation-card .vdesc { font-size: 0.83rem; color: var(--muted); margin-top: 2px; }
+    .violation-card .vconf { font-size: 0.78rem; color: #f87171; margin-top: 4px; }
+    .no-violations {
+      background: #0f2213;
+      border: 1px solid #1a4a28;
+      border-radius: 8px;
+      padding: 14px 18px;
+      color: var(--green);
+      font-size: 0.92rem;
+    }
+
+    /* Detection tables */
+    .detect-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .detect-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .detect-card .head {
+      background: var(--surface2);
+      padding: 10px 14px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .detect-card table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .detect-card td { padding: 8px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .detect-card td:first-child { color: var(--muted); white-space: nowrap; width: 110px; }
+    .detect-card tr:last-child td { border-bottom: none; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 0.76rem;
+      font-weight: 600;
+    }
+    .badge.ok   { background: #14532d; color: #86efac; }
+    .badge.bad  { background: #450a0a; color: #fca5a5; }
+    .badge.warn { background: #451a03; color: #fcd34d; }
+    .badge.info { background: #1e3a5f; color: #93c5fd; }
+    .badge.grey { background: #1e2535; color: var(--muted); }
+
+    /* Plates */
+    .plate-text {
+      font-family: 'Courier New', monospace;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--yellow);
+      background: #1c1500;
+      border: 1px solid #5a4000;
+      padding: 3px 10px;
+      border-radius: 5px;
+      letter-spacing: 0.12em;
+    }
+
+    .empty-note {
+      padding: 10px 14px;
+      color: var(--muted);
+      font-size: 0.83rem;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🚦</div>
+  <h1>Traffic Violation Detection System</h1>
+  <p>Upload a traffic image — AI automatically detects vehicles, helmets, seatbelts, and number plates.</p>
+</header>
+
+<div class="container">
+
+  <!-- ── Upload zone ──────────────────────────────────────────────────── -->
+  <div id="drop-zone">
+    <input type="file" id="file-input" accept="image/*" />
+    <div id="drop-hint">
+      <div class="icon">📸</div>
+      <p><strong>Click to upload</strong> or drag &amp; drop an image here</p>
+      <p style="margin-top:6px;font-size:0.8rem;">Supports JPG, PNG, WEBP • Max 20 MB</p>
+    </div>
+    <div id="preview-wrap" style="display:none;">
+      <img id="preview" alt="Preview" />
+      <button id="change-btn">↩ Change image</button>
+    </div>
+  </div>
+
+  <button id="analyze-btn" disabled>🔍 Analyze Image</button>
+
+  <!-- ── Spinner ──────────────────────────────────────────────────────── -->
+  <div id="spinner">
+    <div class="spin-ring"></div>
+    <p id="spinner-msg">Running detection pipeline...</p>
+  </div>
+
+  <!-- ── Error ────────────────────────────────────────────────────────── -->
+  <div id="error-box"></div>
+
+  <!-- ── Results ──────────────────────────────────────────────────────── -->
+  <div id="results">
+
+    <!-- Summary stats bar -->
+    <div class="summary-bar">
+      <div class="stat-card">
+        <div id="s-vehicles" class="val blue">—</div>
+        <div class="label">Vehicles</div>
+      </div>
+      <div class="stat-card">
+        <div id="s-motorcycles" class="val blue">—</div>
+        <div class="label">Motorcycles</div>
+      </div>
+      <div class="stat-card">
+        <div id="s-cars" class="val blue">—</div>
+        <div class="label">Cars / Buses</div>
+      </div>
+      <div class="stat-card">
+        <div id="s-violations" class="val">—</div>
+        <div class="label">Violations</div>
+      </div>
+      <div class="stat-card">
+        <div id="s-plates" class="val blue">—</div>
+        <div class="label">Plates Read</div>
+      </div>
+    </div>
+
+    <!-- Image comparison -->
+    <div class="img-row">
+      <div class="img-panel">
+        <div class="caption">📷 Original Image</div>
+        <img id="orig-img" alt="Original" />
+      </div>
+      <div class="img-panel">
+        <div class="caption">🔍 Annotated Output</div>
+        <img id="annot-img" alt="Annotated" />
+      </div>
+    </div>
+
+    <!-- Violations -->
+    <div id="violations-section">
+      <div class="section-title">⚠️ Violations Detected</div>
+      <div id="violations-list" class="violation-list"></div>
+    </div>
+
+    <!-- Detection details grid -->
+    <div class="section-title" style="margin-top:24px;">📊 Detection Details</div>
+    <div class="detect-grid" id="detect-grid"></div>
+
+  </div><!-- /#results -->
+
+</div><!-- /.container -->
+
+<script>
+/* ─── State ──────────────────────────────────────────────────────────────── */
+let selectedFile = null;
+
+/* ─── DOM refs ───────────────────────────────────────────────────────────── */
+const dropZone    = document.getElementById('drop-zone');
+const fileInput   = document.getElementById('file-input');
+const dropHint    = document.getElementById('drop-hint');
+const previewWrap = document.getElementById('preview-wrap');
+const preview     = document.getElementById('preview');
+const changeBtn   = document.getElementById('change-btn');
+const analyzeBtn  = document.getElementById('analyze-btn');
+const spinner     = document.getElementById('spinner');
+const spinnerMsg  = document.getElementById('spinner-msg');
+const errorBox    = document.getElementById('error-box');
+const results     = document.getElementById('results');
+
+/* ─── File selection ─────────────────────────────────────────────────────── */
+dropZone.addEventListener('click', () => { if (!selectedFile) fileInput.click(); });
+fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  handleFile(e.dataTransfer.files[0]);
+});
+
+changeBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  resetUpload();
+  fileInput.click();
+});
+
+function handleFile(file) {
+  if (!file || !file.type.startsWith('image/')) {
+    showError('Please select a valid image file (JPG, PNG, WEBP).');
+    return;
+  }
+  selectedFile = file;
+  const url = URL.createObjectURL(file);
+  preview.src = url;
+  preview.style.display = 'block';
+  changeBtn.style.display = 'block';
+  dropHint.style.display = 'none';
+  previewWrap.style.display = 'block';
+  analyzeBtn.disabled = false;
+  hideError();
+  results.style.display = 'none';
+}
+
+function resetUpload() {
+  selectedFile = null;
+  fileInput.value = '';
+  preview.src = '';
+  preview.style.display = 'none';
+  changeBtn.style.display = 'none';
+  previewWrap.style.display = 'none';
+  dropHint.style.display = '';
+  analyzeBtn.disabled = true;
+}
+
+/* ─── Analyze ────────────────────────────────────────────────────────────── */
+analyzeBtn.addEventListener('click', async () => {
+  if (!selectedFile) return;
+
+  setLoading(true, 'Running vehicle detection...');
+  hideError();
+  results.style.display = 'none';
+
+  // Show original image immediately
+  document.getElementById('orig-img').src = URL.createObjectURL(selectedFile);
+
+  const form = new FormData();
+  form.append('file', selectedFile);
+
+  try {
+    const resp = await fetch('/analyze', { method: 'POST', body: form });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+      throw new Error(err.detail || `Server error ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    renderResults(data);
+  } catch (err) {
+    showError(`Analysis failed: ${err.message}`);
+  } finally {
+    setLoading(false);
+  }
+});
+
+/* ─── Render results ─────────────────────────────────────────────────────── */
+function renderResults(data) {
+  const s = data.summary || {};
+
+  // Summary stats
+  setStat('s-vehicles',    s.total_vehicles   ?? 0, 'blue');
+  setStat('s-motorcycles', s.motorcycles      ?? 0, 'blue');
+  setStat('s-cars',        s.cars             ?? 0, 'blue');
+  setStat('s-violations',  s.violations_count ?? 0, (s.violations_count > 0) ? 'bad' : 'ok');
+  setStat('s-plates',      s.plates_read      ?? 0, 'blue');
+
+  // Annotated image
+  const annotImg = document.getElementById('annot-img');
+  if (data.annotated_image) {
+    annotImg.src = 'data:image/png;base64,' + data.annotated_image;
+  }
+
+  // Violations
+  renderViolations(data.violations || []);
+
+  // Detection details
+  renderDetectGrid(data);
+
+  results.style.display = 'block';
+  results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function setStat(id, val, cls) {
+  const el = document.getElementById(id);
+  el.textContent = val;
+  el.className = 'val ' + cls;
+}
+
+function renderViolations(violations) {
+  const list = document.getElementById('violations-list');
+  list.innerHTML = '';
+
+  if (!violations.length) {
+    list.innerHTML = '<div class="no-violations">✅ No violations detected in this image.</div>';
+    return;
+  }
+
+  const icons = { 'No Helmet': '🪖', 'No Seatbelt': '🔒', 'Triple Riding': '🏍️' };
+  violations.forEach(v => {
+    const icon = icons[v.type] || '⚠️';
+    const conf = v.confidence ? `Confidence: ${Math.round(v.confidence * 100)}%` : '';
+    list.innerHTML += `
+      <div class="violation-card">
+        <div class="vicon">${icon}</div>
+        <div>
+          <div class="vtype">${escHtml(v.type)} — Vehicle #${v.vehicle_id}</div>
+          <div class="vdesc">${escHtml(v.description || '')}</div>
+          ${conf ? `<div class="vconf">${conf}</div>` : ''}
+        </div>
+      </div>`;
+  });
+}
+
+function renderDetectGrid(data) {
+  const grid = document.getElementById('detect-grid');
+  grid.innerHTML = '';
+
+  // Vehicles card
+  let vRows = '';
+  (data.vehicles || []).forEach(v => {
+    const trip = v.triple_riding ? ' <span class="badge bad">Triple Riding</span>' : '';
+    vRows += `<tr>
+      <td>#${v.id} ${escHtml(v.type)}</td>
+      <td>${Math.round(v.confidence * 100)}%${trip}</td>
+    </tr>`;
+  });
+  grid.appendChild(makeCard('🚗 Vehicles', ['Vehicle', 'Confidence'], vRows, 'No vehicles detected.'));
+
+  // Helmets card
+  let hRows = '';
+  (data.helmets || []).forEach(h => {
+    const cls   = h.status === 'with_helmet' ? 'ok' : h.status === 'unavailable' ? 'grey' : 'bad';
+    const label = h.status === 'with_helmet' ? '✅ With Helmet' : h.status === 'unavailable' ? 'Unavailable' : '❌ No Helmet';
+    hRows += `<tr>
+      <td>Vehicle #${h.vehicle_id}</td>
+      <td><span class="badge ${cls}">${label}</span> ${h.confidence ? Math.round(h.confidence*100)+'%' : ''}</td>
+    </tr>`;
+  });
+  grid.appendChild(makeCard('🪖 Helmet Status', ['Vehicle', 'Status'], hRows, 'No motorcycles detected.'));
+
+  // Seatbelt card
+  let sRows = '';
+  (data.seatbelts || []).forEach(s => {
+    const cls   = s.status === 'seatbelt' ? 'ok' : s.status === 'unavailable' ? 'grey' : 'bad';
+    const label = s.status === 'seatbelt' ? '✅ Seatbelt On' : s.status === 'unavailable' ? 'Unavailable' : '❌ No Seatbelt';
+    sRows += `<tr>
+      <td>Vehicle #${s.vehicle_id}</td>
+      <td><span class="badge ${cls}">${label}</span> ${s.confidence ? Math.round(s.confidence*100)+'%' : ''}</td>
+    </tr>`;
+  });
+  grid.appendChild(makeCard('🔒 Seatbelt Status', ['Vehicle', 'Status'], sRows, 'No cars/buses detected.'));
+
+  // Plates card
+  let pRows = '';
+  (data.numberplates || []).forEach(p => {
+    const txt = p.text ? `<span class="plate-text">${escHtml(p.text)}</span>` : '<span class="badge grey">Not Read</span>';
+    pRows += `<tr>
+      <td>Vehicle #${p.vehicle_id}</td>
+      <td>${txt}</td>
+    </tr>`;
+  });
+  grid.appendChild(makeCard('🔢 Number Plates', ['Vehicle', 'Plate Number'], pRows, 'No plates detected.'));
+}
+
+function makeCard(title, headers, rows, emptyMsg) {
+  const card = document.createElement('div');
+  card.className = 'detect-card';
+  if (!rows) {
+    card.innerHTML = `<div class="head">${escHtml(title)}</div><div class="empty-note">${emptyMsg}</div>`;
+  } else {
+    card.innerHTML = `
+      <div class="head">${escHtml(title)}</div>
+      <table>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+  return card;
+}
+
+/* ─── UI helpers ─────────────────────────────────────────────────────────── */
+function setLoading(on, msg) {
+  spinner.style.display     = on ? 'flex' : 'none';
+  analyzeBtn.disabled       = on;
+  if (msg) spinnerMsg.textContent = msg;
+}
+
+function showError(msg) {
+  errorBox.textContent  = '⚠️ ' + msg;
+  errorBox.style.display = 'block';
+}
+
+function hideError() {
+  errorBox.style.display = 'none';
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+</script>
+</body>
+</html>

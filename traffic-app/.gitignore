@@ -1,0 +1,27 @@
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# YOLO Output & Models
+runs/
+*.pt
+!backend/models/*.pt
+
+# Testing Outputs
+test_images/
+
+# System / IDE
+.DS_Store
+.vscode/
+.idea/
+*.egg-info/
+dist/
+build/
